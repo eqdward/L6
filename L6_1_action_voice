@@ -1,0 +1,92 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Sep 28 19:47:53 2020
+
+@author: yy
+"""
+
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import roc_auc_score
+
+
+"""读取数据"""
+data = pd.read_csv(r'C:\Users\yy\Desktop\BI\L6\L6-1\L6-code\code\voice\voice.csv')
+
+"""数据探索"""
+print('数据集行数：{}'.format(data.shape[0]))
+print('数据集列数：{}'.format(data.shape[1]))
+print('数据集空值情况：\n', data.isnull().sum())
+print('男性样本个数：{}'.format(data[data['label']=='male'].shape[0]))   # 男性样本数等于女性数据样本数，说明数据均衡
+print('女性样本个数：{}'.format(data[data['label']=='female'].shape[0]))
+print('数据集中各列数据类型：/n', data.dtypes)   # object类型数据进行编码
+
+"""数据集预处理"""
+X = data.iloc[:, :-1]
+y = data.iloc[:, -1]
+
+gender_encoder = LabelEncoder()
+y = gender_encoder.fit_transform(y)
+print(y)
+
+scaler = StandardScaler()
+X = scaler.fit_transform(X)
+print(X)
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=666)
+
+"""训练模型--使用原生接口"""
+import xgboost as xgb
+
+train_X, valid_X, train_y, valid_y = train_test_split(X_train, y_train, test_size=0.2, random_state=666)   # 从训练集中进一步分割出验证集
+train_data = xgb.DMatrix(train_X, label=train_y)
+valid_data = xgb.DMatrix(valid_X, label=valid_y)
+test_data = xgb.DMatrix(X_test)
+
+param = {'boosting_type':'gbdt',
+         'objective' : 'binary:logistic',   #任务目标
+         'eval_metric' : 'auc',   #评估指标
+         'eta' : 0.01,   #学习率
+         'max_depth' : 15,   #树最大深度
+         'colsample_bytree':0.8,   #设置在每次迭代中使用特征的比例
+         'subsample': 0.9,   #样本采样比例
+         'subsample_freq': 8,   #bagging的次数
+         'alpha': 0.6,   #L1正则
+         'lambda': 0,   #L2正则
+        }
+
+model = xgb.train(param, train_data, evals=[(train_data, 'train'), (valid_data, 'valid')], 
+                  num_boost_round = 10000, early_stopping_rounds=200, verbose_eval=25)
+
+predict_data = model.predict(test_data)
+y_predict = pd.Series(predict_data)
+y_predict = y_predict.map(lambda x:1 if x>=0.5 else 0)
+
+print('XGBoost 预测结果：\n', y_predict)
+print('XGBoost 预测准确率：{}'.format(accuracy_score(y_test, y_predict)))
+print('XGBoost 预测结果报告：\n', classification_report(y_test, y_predict))
+print('XGBoost 预测auc值：\n', roc_auc_score(y_test, y_predict))
+
+"""训练模型--使用sklearn接口"""
+from xgboost.sklearn import XGBClassifier
+
+xgbc = XGBClassifier(booster = 'gbtree', 
+                     objective = 'binary:logistic',
+                     eval_metric = 'auc',
+                     learning_rate = 0.01,
+                     max_depth = 15,
+                     colsample_bytree = 1.0,
+                     subsample = 1.0,
+                     reg_alpha = 0.6,
+                     reg_lambda = 0
+                     )
+
+xgbc.fit(X_train, y_train)
+y_pred = xgbc.predict(X_test)
+print('XGBoost 预测结果：\n', y_pred)
+print('XGBoost 预测准确率：{}'.format(accuracy_score(y_test, y_pred)))
+print('XGBoost 预测结果报告：\n', classification_report(y_test, y_pred))
+print('XGBoost 预测auc值：\n', roc_auc_score(y_test, y_pred))
