@@ -1,0 +1,17 @@
+Thinking1：什么是近似最近邻查找，常用的方法有哪些
+答：近似最近邻查找，即Approximate Nearest Neighbor - ANN，是寻找目标相似对象的检索方法。常用的方法有局部敏感哈希，Local Sensitive Hash - LSH。
+    LSH又通常与MinHash相结合。具体步骤：1）首先对样本特征进行k-shingle编码，得到新的特征矩阵input matrix；2）随机对input matrix的各行进行排序，取每一列的第一个值为1的行号，得到一个MinHash
+    向量，总共随机排序m次，得到行数为m的signature matrix，里面的数值就是MinHash值；3）按行将signature matrix分成b个band，每个band中包含r行，基于每个band的MinHash值，对样本进行hash映射，
+    只要MinHash值相同，样本就会被映射到同一个桶（哈希结果）中，从而成为相似目标的候选项。
+
+Thinking2：为什么两个集合的minhash值相同的概率等于这两个集合的Jaccard相似度
+答：例如对于样本A和B，经过k-shingle编码后，其行值只有三种可能，分别为0和0，1和0，1和1，由于0和0在minhash和Jaccard计算中都忽略掉，所以可以直接删除，就剩下0和1，1和1（不区分次序）。
+    Jaccard相似度的本质就是交并比，因此1和1同时出现就是交集，而并集就是1和1、0和1的情况，设1和1的出现行数为n，1和0出现的行数为m，那么Jaccard(A,B)=n/(n+m)；
+    minhash则是行排序后，A和B的特征列中第一个1所在的行序号，因此P(h(A)=h(B))=P(第一行1和1|删除0和0)=n/(n+m)=Jaccard(A,B)。
+
+Thinking3：SimHash在计算文档相似度的作用是怎样的？
+答：SimHash能够将文档映射成特定位数（通常32位）的二进制数字，成为指纹fingerprint。然后基于文档的fingerprint，计算文档间的汉明距离，来判断文档间的相似程度。汉明距离越小，文档相似度越高。
+
+Thinking4：为什么YouTube采用期望观看时间作为评估指标
+答：对于YouTube这种视频类网站，单纯的CTR点击预测实际意义并不大。因为还存在迅速跳出的情况，像抖音中完播率也是重要的指标。因此，采用期望观看时间作为评估指标，一方面能够真实衡量推荐结果的
+    准确性，即用户点进去且观看了一段时间才是有效推荐；另一方面，从收益来看，用户观看的时间越长，相关的广告收益也会越大。
